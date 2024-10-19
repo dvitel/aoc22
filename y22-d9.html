@@ -1,0 +1,118 @@
+<textarea placeholder="your moves here..." id="moves" rows="20"></textarea>
+<div>
+    <label>Num knots: <input type="number" id="numKnots" value="2"/>ms</label>
+</div>
+<div>
+    <label>Delay: <input type="number" id="delay" value="0"/>ms</label>
+</div>
+<div>
+    <label>Draw? <input type="checkbox" id="shouldDraw" checked/>ms</label>
+</div>
+
+<button type="button" id="startBtn">Simulate</button>
+<div id="canvas" style='font-family: "Lucida Console", "Menlo", "Monaco", "Courier", monospace;'>
+
+</div>
+<script>
+let knots = [] //[0, 0] 
+// const T = [0, 0] 
+let Ts = {"0:0": 1}
+
+let simulation = null
+const startBtn = document.getElementById("startBtn")
+const movesElem = document.getElementById("moves")
+const delayElem = document.getElementById("delay")
+const canvas = document.getElementById("canvas");
+const shouldDraw = document.getElementById("shouldDraw");
+const numKnots = document.getElementById("numKnots");
+L = (p) => p[1] -= 1
+R = (p) => p[1] += 1
+U = (p) => p[0] -= 1
+D = (p) => p[0] += 1
+
+const sleep = (ms) => new Promise((res, rej) => setTimeout(res, ms))
+
+const getSymbol = (i, j) => {
+    idx = knots.findIndex(H => i == H[0] && j == H[1])
+    if (idx >= 0) return idx + "";
+    if (i == 0 && j == 0) return "s";
+    return ".";
+}
+let maxR = minR = maxC = minC = 0
+const draw = () => {
+    canvas.innerHTML = ""; //remove children
+    // const grid = []
+    for (let i = minR; i <= maxR; i++) {
+        // let row = []
+        div = document.createElement("div");
+        for (let j = minC; j <= maxC; j++) {
+            let symb = getSymbol(i, j)
+            let span = document.createElement("span");
+            span.innerHTML = symb;
+            if (`${i}:${j}` in Ts) {
+                span.style.backgroundColor = "red"
+                span.style.fontWeight = "bold";
+            }
+            // row.push(symb);
+            div.appendChild(span);
+        }
+        
+        // rowStr = row.join("");
+        // grid.push(rowStr)
+        // div.innerHTML = rowStr;
+        canvas.appendChild(div);
+    }
+    // console.log(grid.join("\n"));
+}
+
+async function execSteps (steps, delayMs) {
+    while (steps.length) {
+        [act, numTimes] = steps.shift();
+        // console.log(shouldDraw.checked);
+        while (numTimes-- > 0) {
+            if (delayMs) await sleep(delayMs);
+            act(knots[0]);
+            knots.forEach((H, i) => {
+                if (i + 1 == knots.length) return;
+                T = knots[i+1];
+                let HT = H.map((v, i) => v - T[i]);
+                let forcePresent = HT.find(d => Math.abs(d) > 1) ? 1 : 0;
+                HT.forEach((v, i) => T[i] = H[i] - (HT[i] - forcePresent * Math.sign(v)));                
+            })
+            T = knots[knots.length - 1]
+            Ts[`${T[0]}:${T[1]}`] = 1;
+            maxR = Math.max(...knots.map(k => k[0]), maxR)
+            minR = Math.min(...knots.map(k => k[0]), minR)
+            maxC = Math.max(...knots.map(k => k[1]), maxC)
+            minC = Math.min(...knots.map(k => k[1]), minC)
+            if (shouldDraw.checked && delayMs) draw();
+        }
+        // console.log("left: ", steps.length);
+    }
+    let res = Object.keys(Ts).length
+    console.log(res);
+    let resDiv = document.createElement("div")
+    resDiv.innerHTML = res;
+    resDiv.fontWeight = "bold"
+    if (shouldDraw.checked) draw();
+    canvas.prepend(resDiv);    
+}
+
+startBtn.addEventListener("click", () => {
+    clearInterval(simulation);
+    let numK = parseInt(numKnots.value);
+    if (numK < 1) return;
+    knots = []; 
+    for (let i = 0; i < numK; i++)
+        knots.push([0, 0])
+    canvas.innerHTML = "";
+    maxR = minR = maxC = minC = 0;
+    Ts = {"0:0": 1};
+    const steps = movesElem.value.split("\n").filter((l) => l != "").map((l) => [window[l[0]], parseInt(l.substr(2))]);
+    const delayMs = parseInt(delayElem.value);
+    // console.log(steps);
+    if (shouldDraw.checked) draw();
+    execSteps(steps, delayMs);
+})
+
+</script>
